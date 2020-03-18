@@ -1,0 +1,10 @@
+**/.idea
+**/cmake-build-debug
+**.o
+**.gch
+main.cpp
+main
+test
+CMakeCache.txt
+**/lib
+**/tests

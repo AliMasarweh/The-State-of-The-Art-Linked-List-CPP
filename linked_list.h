@@ -8,9 +8,11 @@
 #include <cstddef>
 #include "../PlatformIndependentConcurrency/mutex.h"
 #include "../PlatformIndependentConcurrency/concurrency_abstract_factory.h"
-#include "lock.h"
 
 namespace soa {
+
+    static ConcurrencyAbstractFactory* concurrencyAbstractFactory
+                    = ConcurrencyAbstractFactory::getInstance();
 
     template<class T, unsigned int SIZE>
     class LinkedList;
@@ -38,7 +40,7 @@ namespace soa {
         Node<T, SIZE>* m_prev;
     };
 
-    template<class T, unsigned int SIZE>
+    template<class T, unsigned int SIZE = 10>
     class LinkedList {
 
         friend bool operator==(const LinkedList<T, SIZE> &l1, const LinkedList<T, SIZE> &l2)
@@ -123,12 +125,12 @@ namespace soa {
     template<class T, unsigned int SIZE>
     LinkedList<T, SIZE>::LinkedList(size_t capacity) :m_capacity(capacity),
         m_head(capacity),m_tail(&m_head),m_iterator(this)
-        ,m_threadSafetyMutex(ConcurrencyAbstractFactory::getInstance()->createMutex()){}
+        ,m_threadSafetyMutex(concurrencyAbstractFactory->createMutex()){}
 
     template<class T, unsigned int SIZE>
     LinkedList<T, SIZE>::LinkedList(const LinkedList<T, SIZE> &toCopy) :m_capacity(toCopy.m_capacity)
             ,m_iterator(this)
-            ,m_threadSafetyMutex(ConcurrencyAbstractFactory::getInstance()->createMutex())
+            ,m_threadSafetyMutex(concurrencyAbstractFactory->createMutex())
     {
         Node<T, SIZE>* traverser = &m_head;
         Node<T, SIZE>* traverserToCopy = & toCopy.m_head;
@@ -175,14 +177,14 @@ namespace soa {
     template<class T, unsigned int SIZE>
     T &LinkedList<T, SIZE>::front()
     {
-        Lock lock(m_threadSafetyMutex);
+        Mutex::Lock lock(m_threadSafetyMutex);
         return m_head[0];
     }
 
     template<class T, unsigned int SIZE>
     T &LinkedList<T, SIZE>::back()
     {
-        Lock lock(m_threadSafetyMutex);
+        Mutex::Lock lock(m_threadSafetyMutex);
         return m_tail[m_tail->m_size -1 ];
     }
 
@@ -248,7 +250,7 @@ namespace soa {
     typename LinkedList<T, SIZE>::iterator&
         LinkedList<T, SIZE>::insert(LinkedList::iterator& pos, const T &value)
     {
-        Lock lock(m_threadSafetyMutex);
+        Mutex::Lock lock(m_threadSafetyMutex);
         iterator tmp = iterator(pos);
         this->shiftToRight(tmp);
         pos.m_pntrToTraverse->m_data = value;
@@ -258,7 +260,7 @@ namespace soa {
     template<class T, unsigned int SIZE>
     typename LinkedList<T, SIZE>::iterator& LinkedList<T, SIZE>::erase(LinkedList::iterator& pos)
     {
-        Lock lock(m_threadSafetyMutex);
+        Mutex::Lock lock(m_threadSafetyMutex);
         m_threadSafetyMutex->lock();
         for (int i = pos.m_indx; i < pos->size() - 2; ++i)
         {

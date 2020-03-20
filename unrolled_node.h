@@ -6,6 +6,7 @@
 #define THE_STATE_OF_THE_ART_LINKED_LIST_UNROLLED_NODE_H
 
 #include <cstddef>
+#include "ultimate_list_exception.h"
 
 namespace soa {
     template<class T, unsigned int SIZE>
@@ -14,6 +15,17 @@ namespace soa {
     template<class T, unsigned int SIZE>
     class UnrolledNode {
         friend class soa::UltimateLinkedList<T, SIZE>;
+        friend std::ostream& operator<<(std::ostream& os, UnrolledNode<T, SIZE>& unrolledNode)
+        {
+            os << "[" << unrolledNode[0];
+            for (int i = 1; i < unrolledNode.m_size; ++i)
+            {
+                os << ", " << unrolledNode[i];
+            }
+            os << "]";
+
+            return os;
+        }
     public:
         UnrolledNode<T, SIZE>(size_t capacity);
         UnrolledNode<T, SIZE>(UnrolledNode<T, SIZE> &toCopy);
@@ -38,14 +50,14 @@ namespace soa {
 using namespace soa;
 
 template<class T, unsigned int SIZE>
-UnrolledNode<T, SIZE>::UnrolledNode(size_t capacity):m_capacity(m_capacity), m_size(0), m_next(NULL), m_prev(NULL){}
+UnrolledNode<T, SIZE>::UnrolledNode(size_t capacity):m_capacity(capacity), m_size(0), m_next(NULL), m_prev(NULL){}
 
 template<class T, unsigned int SIZE>
 UnrolledNode<T, SIZE>::UnrolledNode(UnrolledNode<T, SIZE> &toCopy):m_capacity(m_capacity), m_size(0)
 {
     while(this->m_size < toCopy.m_size)
     {
-        this[this->m_size++] = toCopy[this->m_size];
+        this->at(this->m_size++) = toCopy[this->m_size];
     }
 
     m_next = toCopy.m_next;
@@ -61,7 +73,7 @@ UnrolledNode<T, SIZE> &UnrolledNode<T, SIZE>::operator=(UnrolledNode<T, SIZE> &t
         this->m_size = 0;
         while(this->m_size < toCopy.m_size)
         {
-            this[this->m_size++] = toCopy[this->m_size];
+            this->at(this->m_size++) = toCopy[this->m_size];
         }
     }
 
@@ -75,8 +87,9 @@ template<class T, unsigned int SIZE>
 UnrolledNode<T, SIZE>::~UnrolledNode<T, SIZE>() {}
 
 template<class T, unsigned int SIZE>
-bool UnrolledNode<T, SIZE>::empty() const {
-    return m_size;
+bool UnrolledNode<T, SIZE>::empty() const
+{
+    return m_size == 0;
 }
 
 template<class T, unsigned int SIZE>
@@ -92,17 +105,18 @@ size_t UnrolledNode<T, SIZE>::capacity() const {
 template<class T, unsigned int SIZE>
 T &UnrolledNode<T, SIZE>::operator[](size_t index) {
     if(index < m_capacity)
+    {
+        if (index == m_size)
+            ++m_size;
         return this->m_data[index];
+    }
 
-    throw -1;// data not found
+    throw InvalidIndexUnrolledNode();// data not found
 }
 
 template<class T, unsigned int SIZE>
 T &UnrolledNode<T, SIZE>::at(size_t index) {
-    if(index < m_capacity)
-        return this->m_data[index];
-
-    throw -1;
+    return this->operator[](index);
 }
 
 #endif //THE_STATE_OF_THE_ART_LINKED_LIST_UNROLLED_NODE_H

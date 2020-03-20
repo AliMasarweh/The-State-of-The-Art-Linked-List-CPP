@@ -94,6 +94,7 @@ namespace soa {
         T pop_back();
         bool push_front(const T &value);
         T pop_front();
+        void setWaitable(bool isWaitable);
 
     private:
         UnrolledNode<T, SIZE> m_head;
@@ -182,13 +183,16 @@ using namespace soa;
 template<class T, unsigned int SIZE>
 UltimateLinkedList<T, SIZE>::UltimateLinkedList(size_t capacity) :m_capacity(capacity),
     m_head(capacity),m_tail(&m_head),m_iterator(this)
-    ,m_threadSafetyMutex(concurrencyFactory->createMutex()){}
+    ,m_threadSafetyMutex(concurrencyFactory->createMutex())
+    ,m_popperPusher(new NormalPopperPusher<T, SIZE>){}
 
 template<class T, unsigned int SIZE>
 UltimateLinkedList<T, SIZE>::UltimateLinkedList(const UltimateLinkedList<T, SIZE> &toCopy) :m_capacity(toCopy.m_capacity)
         ,m_iterator(this)
         ,m_threadSafetyMutex(concurrencyFactory->createMutex())
+        ,m_popperPusher(new NormalPopperPusher<T, SIZE>(toCopy.m_popperPusher))
 {
+
     UnrolledNode<T, SIZE>* traverser = &m_head;
     UnrolledNode<T, SIZE>* traverserToCopy = & toCopy.m_head;
 
@@ -209,6 +213,7 @@ UltimateLinkedList<T, SIZE> &UltimateLinkedList<T, SIZE>::operator=(const Ultima
     {
         this->releaseHeap();
 
+        *m_popperPusher = *toCopy.m_popperPusher;
         UnrolledNode<T, SIZE>* traverser = &m_head;
         UnrolledNode<T, SIZE>* traverserToCopy = & toCopy.m_head;
 
@@ -357,6 +362,17 @@ T UltimateLinkedList<T, SIZE>::innerPopFront() {
     return ans;
 }
 
+
+template<class T, unsigned int SIZE>
+void UltimateLinkedList<T, SIZE>::setWaitable(bool isWaitable)
+{
+    delete this->m_popperPusher;
+    if(isWaitable)
+        m_popperPusher = new BlockingPopperPusher<T, SIZE>(*this);
+    else
+        m_popperPusher = new NormalPopperPusher<T, SIZE>;
+}
+
 template<class T, unsigned int SIZE>
 void UltimateLinkedList<T, SIZE>::releaseHeap()
 {
@@ -365,6 +381,8 @@ void UltimateLinkedList<T, SIZE>::releaseHeap()
         m_tail = m_tail->m_prev;
         delete m_tail->m_next;
     }
+
+    delete m_popperPusher;
 }
 
 template<class T, unsigned int SIZE>

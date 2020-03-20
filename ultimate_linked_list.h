@@ -20,9 +20,9 @@ namespace soa {
     template<class T, unsigned int SIZE>
     class PopperPusher {
     public:
-        virtual bool pushBack(UltimateLinkedList<T, SIZE> &ultimateLinkedList, T &value) = 0;
+        virtual bool pushBack(UltimateLinkedList<T, SIZE> &ultimateLinkedList, const T &value) = 0;
         virtual T popBack(UltimateLinkedList<T, SIZE> &ultimateLinkedList) = 0;
-        virtual bool pushFront(UltimateLinkedList<T, SIZE> &ultimateLinkedList, T &value) = 0;
+        virtual bool pushFront(UltimateLinkedList<T, SIZE> &ultimateLinkedList, const T &value) = 0;
         virtual T popFront(UltimateLinkedList<T, SIZE> &ultimateLinkedList) = 0;
         virtual ~PopperPusher() {}
     };
@@ -135,11 +135,11 @@ namespace soa {
     template<class T, unsigned int SIZE>
     class NormalPopperPusher: public PopperPusher<T, SIZE> {
     public:
-        virtual bool pushBack(UltimateLinkedList<T, SIZE> &ultimateLinkedList, T &value)
+        virtual bool pushBack(UltimateLinkedList<T, SIZE> &ultimateLinkedList, const T &value)
         {   return ultimateLinkedList.innerPushBack(value);    }
         virtual T popBack(UltimateLinkedList<T, SIZE> &ultimateLinkedList)
         {   return ultimateLinkedList.innerPopBack();    }
-        virtual bool pushFront(UltimateLinkedList<T, SIZE> &ultimateLinkedList, T &value)
+        virtual bool pushFront(UltimateLinkedList<T, SIZE> &ultimateLinkedList, const T &value)
         {   return ultimateLinkedList.innerPushFront(value);    }
         virtual T popFront(UltimateLinkedList<T, SIZE> &ultimateLinkedList)
         {   return ultimateLinkedList.innerPopFront();    }
@@ -152,7 +152,7 @@ namespace soa {
         BlockingPopperPusher(UltimateLinkedList<T, SIZE> &ultimateLinkedList)
         :m_addingSem(concurrencyFactory->createSemaphore(ultimateLinkedList.capacity()))
         , m_removingSem(concurrencyFactory->createSemaphore(0)){}
-        virtual bool pushBack(UltimateLinkedList<T, SIZE> &ultimateLinkedList, T &value)
+        virtual bool pushBack(UltimateLinkedList<T, SIZE> &ultimateLinkedList, const T &value)
         {
             m_addingSem->wait();
             bool isSuccessful = ultimateLinkedList.innerPushBack(value);
@@ -168,7 +168,7 @@ namespace soa {
 
             return backValue;
         }
-        virtual bool pushFront(UltimateLinkedList<T, SIZE> &ultimateLinkedList, T &value)
+        virtual bool pushFront(UltimateLinkedList<T, SIZE> &ultimateLinkedList, const T &value)
         {
             m_addingSem->wait();
             bool isSuccessful = ultimateLinkedList.innerPushFront(value);
@@ -199,13 +199,13 @@ using namespace soa;
 
 template<class T, unsigned int SIZE>
 UltimateLinkedList<T, SIZE>::UltimateLinkedList(size_t capacity) :m_capacity(capacity),
-    m_head(capacity),m_tail(&m_head),m_iterator(this)
+    m_head(capacity),m_tail(&m_head),m_iterator(this), m_size(0)
     ,m_threadSafetyMutex(concurrencyFactory->createMutex())
     ,m_popperPusher(new NormalPopperPusher<T, SIZE>){}
 
 template<class T, unsigned int SIZE>
 UltimateLinkedList<T, SIZE>::UltimateLinkedList(const UltimateLinkedList<T, SIZE> &toCopy) :m_capacity(toCopy.m_capacity)
-        ,m_iterator(this)
+        ,m_iterator(this), m_size(toCopy.m_size)
         ,m_threadSafetyMutex(concurrencyFactory->createMutex())
         ,m_popperPusher(new NormalPopperPusher<T, SIZE>(toCopy.m_popperPusher))
 {
@@ -280,7 +280,7 @@ const typename UltimateLinkedList<T, SIZE>::iterator& UltimateLinkedList<T, SIZE
 template<class T, unsigned int SIZE>
 bool UltimateLinkedList<T, SIZE>::empty() const
 {
-    return m_size;
+    return m_size == 0;
 }
 
 template<class T, unsigned int SIZE>
@@ -298,6 +298,7 @@ size_t UltimateLinkedList<T, SIZE>::capacity() const
 template<class T, unsigned int SIZE>
 bool UltimateLinkedList<T, SIZE>::push_back(const T &value)
 {
+    Mutex::Lock lock(m_threadSafetyMutex);
     return this->m_popperPusher->pushBack(*this, value);
 }
 
@@ -306,7 +307,6 @@ bool UltimateLinkedList<T, SIZE>::innerPushBack(const T &value) {
     if(this->m_size == this->m_capacity)
         return false;
 
-    m_threadSafetyMutex->lock();
     if(m_tail->m_size == m_tail->m_capacity)
     {
         m_tail->m_next = new UnrolledNode<T, SIZE>(m_tail->m_capacity);
@@ -314,26 +314,27 @@ bool UltimateLinkedList<T, SIZE>::innerPushBack(const T &value) {
         m_tail = m_tail->m_next;
     }
     m_tail->at(m_tail->m_size ++) = value;
-    m_threadSafetyMutex->unlock();
 
+    ++ this->m_size;
     return true;
 }
 
 template<class T, unsigned int SIZE>
 T UltimateLinkedList<T, SIZE>::pop_back()
 {
+    Mutex::Lock lock(m_threadSafetyMutex);
     return this->m_popperPusher->popBack(*this);
 }
 
 template<class T, unsigned int SIZE>
 T UltimateLinkedList<T, SIZE>::innerPopBack() {
-    Mutex::Lock lock(m_threadSafetyMutex);
     if(m_tail->m_size == 0)
     {
         m_tail = m_tail->m_prev;
         delete m_tail->m_next;
     }
     T ans = m_tail->at(m_tail->m_size--);
+    -- this->m_size;
 
     return ans;
 }
@@ -341,6 +342,7 @@ T UltimateLinkedList<T, SIZE>::innerPopBack() {
 template<class T, unsigned int SIZE>
 bool UltimateLinkedList<T, SIZE>::push_front(const T &value)
 {
+    Mutex::Lock lock(m_threadSafetyMutex);
     return this->m_popperPusher->pushFront(*this, value);
 }
 
@@ -348,11 +350,11 @@ template<class T, unsigned int SIZE>
 bool UltimateLinkedList<T, SIZE>::innerPushFront(const T &value) {
     if(this->m_size == 0)
         return false;
-    Mutex::Lock lock(m_threadSafetyMutex);
     UnrolledNode<T, SIZE>* headCopy = new UnrolledNode<T, SIZE>(m_head);
     m_head.m_size = 0;
     m_head.m_next = headCopy;
     m_head.at(m_size++) = value;
+    ++ this->m_size;
 
     return true;
 }
@@ -361,12 +363,12 @@ bool UltimateLinkedList<T, SIZE>::innerPushFront(const T &value) {
 template<class T, unsigned int SIZE>
 T UltimateLinkedList<T, SIZE>::pop_front()
 {
+    Mutex::Lock lock(m_threadSafetyMutex);
     return this->m_popperPusher->popFront(*this);
 }
 
 template<class T, unsigned int SIZE>
 T UltimateLinkedList<T, SIZE>::innerPopFront() {
-    Mutex::Lock lock(m_threadSafetyMutex);
     UnrolledNode<T, SIZE> afterHeadCopy(*m_head.m_next);
     if(m_head.m_size == 0)
     {
@@ -375,6 +377,7 @@ T UltimateLinkedList<T, SIZE>::innerPopFront() {
         m_head = afterHeadCopy;
     }
     T ans = m_head[m_head.m_size--];
+    -- this->m_size;
 
     return ans;
 }

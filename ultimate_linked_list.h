@@ -15,8 +15,7 @@ namespace soa {
     static ConcurrencyAbstractFactory* concurrencyFactory
                     = ConcurrencyAbstractFactory::getInstance();
 
-    template<class T, unsigned int SIZE>
-    class UltimateLinkedList;
+    template<class T, unsigned int SIZE> class UltimateLinkedList;
 
     template<class T, unsigned int SIZE>
     class PopperPusher {
@@ -27,11 +26,15 @@ namespace soa {
         virtual T popFront(UltimateLinkedList<T, SIZE> &ultimateLinkedList) = 0;
         virtual ~PopperPusher() {}
     };
+    template<class T, unsigned int SIZE> class NormalPopperPusher;
+    template<class T, unsigned int SIZE> class BlockingPopperPusher;
 
     template<class T, unsigned int SIZE = 10>
     class UltimateLinkedList {
 
         friend class PopperPusher<T, SIZE>;
+        friend class NormalPopperPusher<T, SIZE>;
+        friend class BlockingPopperPusher<T, SIZE>;
 
         friend bool operator==(const UltimateLinkedList<T, SIZE> &l1, const UltimateLinkedList<T, SIZE> &l2)
         {
@@ -54,6 +57,20 @@ namespace soa {
             return !(l1 == l2);
         }
 
+        friend std::ostream& operator<<(std::ostream& os, UltimateLinkedList<T, SIZE>& list)
+        {
+            UnrolledNode<T, SIZE>* travser = &list.m_head;
+            os << "[" << *travser;
+            while (travser != NULL)
+            {
+                os << ", " << *travser;
+                travser = travser->m_next;
+            }
+            os << "]";
+
+            return os;
+        }
+
     public:
         explicit UltimateLinkedList<T, SIZE>(size_t capacity);
         UltimateLinkedList<T, SIZE>(const UltimateLinkedList<T, SIZE> &toCopy);
@@ -74,8 +91,9 @@ namespace soa {
             UnrolledNode<T, SIZE>* operator->();
             UnrolledNode<T, SIZE>& operator*();
 
-            const static Iterator s_end = NULL;
+            const static Iterator s_end;
         private:
+            Iterator(void* pntr = NULL) :m_indx(-1), m_pntrToTraverse(NULL) {}
             UnrolledNode<T, SIZE>* m_pntrToTraverse;
             size_t m_indx;
         };
@@ -111,7 +129,7 @@ namespace soa {
         T innerPopBack();
         bool innerPushFront(const T &value);
         T innerPopFront();
-        void releaseHeap();
+        void releaseHeapAllocations();
     };
 
     template<class T, unsigned int SIZE>
@@ -179,7 +197,6 @@ namespace soa {
 }
 using namespace soa;
 
-
 template<class T, unsigned int SIZE>
 UltimateLinkedList<T, SIZE>::UltimateLinkedList(size_t capacity) :m_capacity(capacity),
     m_head(capacity),m_tail(&m_head),m_iterator(this)
@@ -211,7 +228,7 @@ UltimateLinkedList<T, SIZE> &UltimateLinkedList<T, SIZE>::operator=(const Ultima
 {
     if(*this != toCopy)
     {
-        this->releaseHeap();
+        this->releaseHeapAllocations();
 
         *m_popperPusher = *toCopy.m_popperPusher;
         UnrolledNode<T, SIZE>* traverser = &m_head;
@@ -233,7 +250,7 @@ UltimateLinkedList<T, SIZE> &UltimateLinkedList<T, SIZE>::operator=(const Ultima
 template<class T, unsigned int SIZE>
 UltimateLinkedList<T, SIZE>::~UltimateLinkedList<T, SIZE>()
 {
-    this->releaseHeap();
+    this->releaseHeapAllocations();
 }
 
 template<class T, unsigned int SIZE>
@@ -316,7 +333,7 @@ T UltimateLinkedList<T, SIZE>::innerPopBack() {
         m_tail = m_tail->m_prev;
         delete m_tail->m_next;
     }
-    T ans = m_tail[m_tail->m_size--];
+    T ans = m_tail->at(m_tail->m_size--);
 
     return ans;
 }
@@ -350,14 +367,14 @@ T UltimateLinkedList<T, SIZE>::pop_front()
 template<class T, unsigned int SIZE>
 T UltimateLinkedList<T, SIZE>::innerPopFront() {
     Mutex::Lock lock(m_threadSafetyMutex);
-    UnrolledNode<T, SIZE> afterHeadCopy(m_head.m_next);
-    if(m_head->m_size == 0)
+    UnrolledNode<T, SIZE> afterHeadCopy(*m_head.m_next);
+    if(m_head.m_size == 0)
     {
         delete m_head.m_next;
-        m_head = m_head.m_next;
+        m_head = *m_head.m_next;
         m_head = afterHeadCopy;
     }
-    T ans = m_head[m_head->m_size--];
+    T ans = m_head[m_head.m_size--];
 
     return ans;
 }
@@ -374,7 +391,7 @@ void UltimateLinkedList<T, SIZE>::setWaitable(bool isWaitable)
 }
 
 template<class T, unsigned int SIZE>
-void UltimateLinkedList<T, SIZE>::releaseHeap()
+void UltimateLinkedList<T, SIZE>::releaseHeapAllocations()
 {
     while(m_tail != &m_head)
     {

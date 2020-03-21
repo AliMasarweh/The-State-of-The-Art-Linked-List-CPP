@@ -61,10 +61,14 @@ namespace soa {
         {
             UnrolledNode<T, SIZE>* travser = list.m_head;
             os << "[" << *travser;
+            std::stringstream ss;
+            ss << *travser;
+            std::string str = ss.str();
             travser = &travser->getNext();
             while (travser != NULL)
             {
                 os << ", " << *travser;
+                str = ss.str();
                 travser = &travser->getNext();
             }
             os << "]";
@@ -208,7 +212,7 @@ using namespace soa;
 
 template<class T, unsigned int SIZE>
 UltimateLinkedList<T, SIZE>::UltimateLinkedList(size_t capacity) :m_capacity(capacity),
-     m_iterator(this),m_size(0)
+     m_iterator(this),m_size(0),m_nodeSize(SIZE)
     ,m_threadSafetyMutex(concurrencyFactory->createMutex())
     ,m_popperPusher(new NormalPopperPusher<T, SIZE>)
     {
@@ -368,13 +372,12 @@ bool UltimateLinkedList<T, SIZE>::innerPushFront(const T &value) {
     if(this->m_size == this->m_capacity)
         return false;
 
-    if(m_head->m_size == m_head->m_capacity)
+    if(!m_head->push_front(value))
     {
         m_head->m_prev = new UnrolledNode<T, SIZE>(m_head->m_capacity);
         m_head->m_prev->m_next = m_head;
         m_head = m_head->m_prev;
     }
-    m_head->at(m_head->m_capacity - ++m_head->m_size) = value;
 
     ++ this->m_size;
     return true;

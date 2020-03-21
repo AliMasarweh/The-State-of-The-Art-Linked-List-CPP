@@ -45,6 +45,8 @@ namespace soa {
         size_t m_capacity;
         UnrolledNode<T, SIZE>* m_next;
         UnrolledNode<T, SIZE>* m_prev;
+
+        bool push_front(const T& val);
     };
 }
 
@@ -131,6 +133,21 @@ template<class T, unsigned int SIZE>
 UnrolledNode<T, SIZE> &UnrolledNode<T, SIZE>::getNext() const
 {
     return * this->m_next;
+}
+
+template<class T, unsigned int SIZE>
+bool UnrolledNode<T, SIZE>::push_front(const T &val)
+{
+    if(m_size == m_capacity)
+        return false;
+    for (int i = m_size - 1; i >=0 ; --i)
+    {
+        m_data[i+1] = m_data[i];
+    }
+
+    m_data[0] = val;
+    ++m_size;
+    return true;
 }
 
 #endif //THE_STATE_OF_THE_ART_LINKED_LIST_UNROLLED_NODE_H

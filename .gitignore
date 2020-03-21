@@ -2,7 +2,7 @@
 **/cmake-build-debug
 **.o
 **.gch
-main_tester.cpp
+main.cpp
 main
 test
 CMakeCache.txt

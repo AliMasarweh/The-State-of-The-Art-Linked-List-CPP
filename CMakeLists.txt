@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 98)
 include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 find_package(Threads)
 
-add_executable(The_State_Of_The_Art_Linked_List main.cpp ultimate_linked_list.h unrolled_node.h real_popper_pusher.h
+add_executable(The_State_Of_The_Art_Linked_List main_tester.cpp ultimate_linked_list.h unrolled_node.h real_popper_pusher.h
         external-sources/concurrency_factory.cpp external-sources/concurrency_objects.cpp
         ultimate_list_exception.h)
 

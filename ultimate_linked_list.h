@@ -347,7 +347,10 @@ T UltimateLinkedList<T, SIZE>::pop_back()
 }
 
 template<class T, unsigned int SIZE>
-T UltimateLinkedList<T, SIZE>::innerPopBack() {
+T UltimateLinkedList<T, SIZE>::innerPopBack()
+{
+    if(m_size == 0)
+        return T();
     if(m_tail->m_size == 0)
     {
         m_tail = m_tail->m_prev;
@@ -394,13 +397,16 @@ T UltimateLinkedList<T, SIZE>::pop_front()
 template<class T, unsigned int SIZE>
 T UltimateLinkedList<T, SIZE>::innerPopFront() {
     UnrolledNode<T, SIZE> afterHeadCopy(*(m_head->m_next));
+    if(m_size == 0)
+        return T();
+
     if(m_head->m_size == 0)
     {
         m_head = m_head->m_next;
         delete m_head->m_prev;
         m_head->m_prev = NULL;
     }
-    T ans = m_head->at(m_head->m_capacity - m_head->m_size--);
+    T ans = m_head->pop_front();
     -- this->m_size;
 
     return ans;

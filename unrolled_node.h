@@ -47,6 +47,7 @@ namespace soa {
         UnrolledNode<T, SIZE>* m_prev;
 
         bool push_front(const T& val);
+        T pop_front();
     };
 }
 
@@ -148,6 +149,19 @@ bool UnrolledNode<T, SIZE>::push_front(const T &val)
     m_data[0] = val;
     ++m_size;
     return true;
+}
+
+template<class T, unsigned int SIZE>
+T UnrolledNode<T, SIZE>::pop_front()
+{
+    for (int i = 0; i < m_size - 1; i)
+    {
+        m_data[i] = m_data[i + 1];
+    }
+
+    T ans = m_data[0];
+    --m_size;
+    return ans;
 }
 
 #endif //THE_STATE_OF_THE_ART_LINKED_LIST_UNROLLED_NODE_H
